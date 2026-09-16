@@ -3,7 +3,7 @@ name: Unpack Inferno UI V97 assets
 on:
   push:
     paths:
-      - 'inferno-ui-v97-assets.b64'
+      - 'inferno-ui-v97-assets-part*.b64'
 
 permissions:
   contents: write
@@ -13,22 +13,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Decode assets
+      - name: Check and decode assets
         shell: bash
         run: |
           set -euo pipefail
+          for n in 1 2 3 4 5; do
+            test -f "inferno-ui-v97-assets-part${n}.b64" || { echo "Waiting for all five payload parts"; exit 0; }
+          done
+          cat inferno-ui-v97-assets-part{1,2,3,4,5}.b64 > /tmp/inferno-ui-v97-assets.b64
           mkdir -p inferno-ui-v97
           while IFS='|' read -r name data; do
             [ -z "$name" ] && continue
             printf '%s' "$data" | base64 -d > "inferno-ui-v97/$name"
-          done < inferno-ui-v97-assets.b64
-          rm -f inferno-ui-v97-assets.b64
+          done < /tmp/inferno-ui-v97-assets.b64
+          rm -f inferno-ui-v97-assets-part{1,2,3,4,5}.b64
           rm -f .github/workflows/unpack-inferno-ui-v97.yml
-      - name: Commit decoded assets
-        shell: bash
-        run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -m 'Add Inferno UI V97 banner assets'
+          git diff --cached --quiet || git commit -m 'Add Inferno UI V97 banner assets'
           git push
