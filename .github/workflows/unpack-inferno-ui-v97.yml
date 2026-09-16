@@ -3,7 +3,7 @@ name: Unpack Inferno UI V97 assets
 on:
   push:
     paths:
-      - 'inferno-ui-v97-assets-part*.b64'
+      - 'inferno-ui-v97-staging/*.b64'
 
 permissions:
   contents: write
@@ -13,20 +13,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check and decode assets
+      - name: Decode when all assets are staged
         shell: bash
         run: |
           set -euo pipefail
-          for n in 1 2 3 4 5; do
-            test -f "inferno-ui-v97-assets-part${n}.b64" || { echo "Waiting for all five payload parts"; exit 0; }
-          done
-          cat inferno-ui-v97-assets-part{1,2,3,4,5}.b64 > /tmp/inferno-ui-v97-assets.b64
+          expected=14
+          count=$(find inferno-ui-v97-staging -maxdepth 1 -name '*.b64' -type f 2>/dev/null | wc -l)
+          if [ "$count" -ne "$expected" ]; then
+            echo "Waiting for all $expected assets; currently $count"
+            exit 0
+          fi
           mkdir -p inferno-ui-v97
-          while IFS='|' read -r name data; do
-            [ -z "$name" ] && continue
-            printf '%s' "$data" | base64 -d > "inferno-ui-v97/$name"
-          done < /tmp/inferno-ui-v97-assets.b64
-          rm -f inferno-ui-v97-assets-part{1,2,3,4,5}.b64
+          for f in inferno-ui-v97-staging/*.b64; do
+            name=$(basename "$f" .b64)
+            base64 -d "$f" > "inferno-ui-v97/$name"
+          done
+          rm -rf inferno-ui-v97-staging
           rm -f .github/workflows/unpack-inferno-ui-v97.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
